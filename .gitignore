@@ -1,1 +1,5 @@
+build/*
+lib/*
+keys/*
 honeypot-ssh-server
+honeypot-ssh-server-linux-amd64.tar.gz

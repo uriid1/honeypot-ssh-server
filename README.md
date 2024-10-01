@@ -12,7 +12,7 @@ Log example `log/honeypot_ssh.log`</br>
 ```
 
 # Installation
-### LibSHH
+### LibSSH
 First, install libssh on your distribution.</br>
 You should also have the gcc compiler installed.
 

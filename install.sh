@@ -1,7 +1,7 @@
 #!/bin/env bash
 
 printf "Generate Keys\n"
-mkdir keys
+mkdir -p keys
 ssh-keygen -t ecdsa -b 521 -f keys/ssh_host_ecdsa_key -N ""
 printf "\n"
 
@@ -10,8 +10,8 @@ make
 printf "\n"
 
 printf "Copy to /home/$USER/honeypot-ssh-server\n"
-mkdir ~/honeypot-ssh-server
-mkdir ~/honeypot-ssh-server/log
+mkdir -p ~/honeypot-ssh-server
+mkdir -p ~/honeypot-ssh-server/log
 cp -r keys ~/honeypot-ssh-server
 cp honeypot-ssh-server ~/honeypot-ssh-server
 printf "\n"
