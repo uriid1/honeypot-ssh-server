@@ -3,6 +3,14 @@
 The program is provided "as is" and without any warranties. </br>
 It is based on the LibSSH library and the example called ssh_server_fork.
 
+Log example `log/honeypot_ssh.log`</br>
+```
+[2024-10-01 22:35:05] New session | IP: 85.21.81.22
+[2024-10-01 22:35:10] Client enter password | IP: 85.21.81.22 | User: root | Pass: Admin123
+[2024-10-01 22:35:12] Client enter password | IP: 85.21.81.22 | User: root | Pass: root
+[2024-10-01 22:35:15] Client enter password | IP: 85.21.81.22 | User: admin | Pass: adminadmin
+```
+
 # Installation
 ### LibSHH
 First, install libssh on your distribution.</br>
@@ -27,6 +35,7 @@ bash install.sh
 1. A `honeypot-ssh-server` directory will appear in your home folder containing the server binary.</br>
 2. Default port: `22`. You will need to open it through your firewall.</br>
 3. Create a systemd service or run the server with root privileges: `sudo ./honeypot-ssh-server`.
+5. To create a service by default, run `bash make-systemd-service.sh`
 
 # Manual Build
 Before building, you can change the port or log path by modifying the `src/config.h` file.</br>
