@@ -3,8 +3,6 @@
 readonly SERVICE_NAME="honeypot-ssh-server.service"
 
 sudo -v
-touch $SERVICE_NAME
-
 cat > /etc/systemd/system/$SERVICE_NAME <<EOF
 [Unit]
 Description=Honeypot SSH-server

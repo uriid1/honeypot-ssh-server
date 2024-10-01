@@ -3,3 +3,4 @@ lib/*
 keys/*
 honeypot-ssh-server
 honeypot-ssh-server-linux-amd64.tar.gz
+honeypot-ssh-server.service

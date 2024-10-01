@@ -5,10 +5,13 @@ It is based on the LibSSH library and the example called ssh_server_fork.
 
 Log example `log/honeypot_ssh.log`</br>
 ```
-[2024-10-01 22:35:05] New session | IP: 85.21.81.22
-[2024-10-01 22:35:10] Client enter password | IP: 85.21.81.22 | User: root | Pass: Admin123
-[2024-10-01 22:35:12] Client enter password | IP: 85.21.81.22 | User: root | Pass: root
-[2024-10-01 22:35:15] Client enter password | IP: 85.21.81.22 | User: admin | Pass: adminadmin
+[2024-10-02 02:43:48] New session | IP: 43.155.130.118
+[2024-10-02 02:43:48] New session | IP: 34.101.245.3
+[2024-10-02 02:43:49] New session | IP: 45.183.218.125
+[2024-10-02 02:43:49] Client enter password | IP: 43.155.130.118 | User: root | Pass: babu
+[2024-10-02 02:43:50] Client enter password | IP: 34.101.245.3 | User: root | Pass: hello1
+[2024-10-02 02:43:50] Client enter password | IP: 45.183.218.125 | User: root | Pass: Pizza@123
+[2024-10-02 02:43:50] Client message | IP: 45.183.218.125 | Received SSH_MSG_DISCONNECT: 11:Bye Bye
 ```
 
 # Installation
@@ -32,6 +35,11 @@ sudo pacman -S libssh
 ```bash
 bash install.sh
 ```
+Or
+```bash
+make
+make install
+```
 1. A `honeypot-ssh-server` directory will appear in your home folder containing the server binary.</br>
 2. Default port: `22`. You will need to open it through your firewall.</br>
 3. Create a systemd service or run the server with root privileges: `sudo ./honeypot-ssh-server`.
@@ -39,7 +47,7 @@ bash install.sh
 
 # Manual Build
 Before building, you can change the port or log path by modifying the `src/config.h` file.</br>
-Currently, argument support is not implemented, so all configuration is done through the config file.</br>
+Or ./honeypot-ssh-server --help for information on available arguments.
 
 ### Generate Keys
 ```bash

@@ -1,8 +1,8 @@
-/////////////////////////////////////
-// SSH honeypot
-// На основе libssh/ssh_server_fork
-// by uriid
-/////////////////////////////////////
+/*-------------------------------------*/
+/*/ Honeypot SSH-Server               /*/
+/*/ На основе libssh/ssh_server_fork  /*/
+/*/ by uriid                          /*/
+/*-------------------------------------*/
 
 // Функции libssh
 #include <libssh/callbacks.h>
@@ -16,6 +16,8 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <time.h>
+// Обработка аргументов
+#include <argp.h>
 // Для получение данных клиента
 #include <string.h>
 #include <arpa/inet.h>
@@ -48,6 +50,81 @@ struct session_data_struct {
   int auth_attempts;
   int authenticated;
 };
+
+// Структура для хранения аргументов
+struct arguments {
+  int debug;
+  char* port;
+  char* path_ecdsa_key;
+  char* path_log;
+  int password_attempts_timeout;
+  int password_attempts;
+};
+struct arguments args;
+
+// Описание аргументов
+static struct argp_option options[] = {
+  {"port",                      'p',  "PORT",                      0, "Port for connection (default is 22)"},
+  {"path_ecdsa_key",            'k',  "PATH_ECDSA_KEY",            0, "Path to the ECDSA key (default is keys/ssh_host_ecdsa_key)"},
+  {"path_log",                  'l',  "PATH_LOG",                  0, "Path to log file (default is log/honeypot_ssh.log)"},
+  {"password_attempts_timeout", 't',  "PASSWORD_ATTEMPTS_TIMEOUT", 0, "Timeout for password attempts (default is 100ms)"},
+  {"password_attempts",         'a',  "PASSWORD_ATTEMPTS",         0, "Number of password attempts (default is 3)"},
+  {"debug",                     'd',  "DEBUG",                     0, "Enable debug mode, default is 0 (disabled)"},
+
+  // Конец списка опций
+  {0}
+};
+
+// Функция для обработки аргументов
+static error_t parse_opt(int key, char *arg, struct argp_state *state) {
+  struct arguments *args = state->input;
+
+  switch (key) {
+    case 'd':
+      args->debug = atoi(arg);
+      break;
+    case 'p':
+      args->port = arg;
+      break;
+    case 't':
+      args->password_attempts_timeout = atoi(arg);
+      break;
+    case 'a':
+      args->password_attempts = atoi(arg);
+      break;
+    case 'k':
+      args->path_ecdsa_key = arg;
+      break;
+    case 'l':
+      args->path_log = arg;
+      break;
+    case ARGP_KEY_END:
+      break;
+    default:
+      return ARGP_ERR_UNKNOWN;
+  }
+  return 0;
+}
+
+// Описание argp
+static char doc[] = "Honeypot ssh server based on LibSSH";
+static char args_doc[] = "ARGS";
+
+// Парсинг аргументов
+void parse_args(int argc, char *argv[]) {
+  // Установка значений по умолчанию
+  args.port = PORT;
+  args.path_ecdsa_key = PATH_ECDSA_KEY;
+  args.path_log = PATH_LOG;
+  args.password_attempts_timeout = PASSWORD_INPUT_TIMEOUT_MS;
+  args.password_attempts = PASSWORD_ATTEMPTS;
+  args.debug = DEBUG;
+
+  struct argp argp = {options, parse_opt, args_doc, doc};
+
+  // Обработка аргументов
+  argp_parse(&argp, argc, argv, 0, 0, &args);
+}
 
 // Ip адресс клиента строкой
 char* get_сlient_ip(ssh_session session) {
@@ -90,20 +167,18 @@ char* get_date_time() {
 static int auth_password(ssh_session session, const char *user, const char *pass, void *userdata) {
   struct session_data_struct *sdata = (struct session_data_struct *) userdata;
 
-  // Отладка
-  char* ip = get_сlient_ip(session);
+  // Запись в лог
+  const char* ip = get_сlient_ip(session);
   if (ip == NULL) ip = "null";
-  char* date = get_date_time();
-  if (DEBUG) {
-    fprintf(stdout,
-      "[%s] Client enter password | IP: %s | User: %s | Pass: %s\n", date, ip, user, pass);
-  } else {
-    // Заись в лог
-    char buffer[256+sizeof(date)+sizeof(ip)+sizeof(user)+sizeof(pass)];
-    snprintf(buffer, sizeof(buffer),
-      "[%s] Client enter password | IP: %s | User: %s | Pass: %s\n", date, ip, user, pass);
-    write_log(PATH_LOG, buffer);
-  }
+  const char* date = get_date_time();
+  const char* fmts = "[%s] Client enter password | IP: %s | User: %s | Pass: %s\n";
+
+  char buffer[256+sizeof(date)+sizeof(ip)+sizeof(user)+sizeof(pass)];
+  snprintf(buffer, sizeof(buffer), fmts, date, ip, user, pass);
+  write_log(args.path_log, buffer);
+
+  // Отладка
+  if (args.debug) fprintf(stdout, fmts, date, ip, user, pass);
 
   sdata->auth_attempts++;
   return SSH_AUTH_DENIED;
@@ -113,20 +188,18 @@ static int auth_password(ssh_session session, const char *user, const char *pass
 static ssh_channel channel_open(ssh_session session, void *userdata) {
   struct session_data_struct *sdata = (struct session_data_struct *) userdata;
 
-  // Отладка
-  char* ip = get_сlient_ip(session);
+  // Запись в лог
+  const char* ip = get_сlient_ip(session);
   if (ip == NULL) ip = "null";
-  char* date = get_date_time();
+  const char* date = get_date_time();
+  const char* fmts = "[%s] Clien request to open channel | IP: %s\n";
 
-  if (DEBUG) {
-    fprintf(stdout, "[%s] Clien request to open channel | IP: %s\n", date, ip);
-  } else {
-    // Запись в лог
-    char buffer[256+sizeof(date)+sizeof(ip)];
-    snprintf(buffer, sizeof(buffer),
-      "[%s] Clien request to open channel | IP: %s\n", date, ip);
-    write_log(PATH_LOG, buffer); 
-  }
+  char buffer[256+sizeof(date)+sizeof(ip)];
+  snprintf(buffer, sizeof(buffer), fmts, date, ip);
+  write_log(args.path_log, buffer);
+
+  // Отладка
+  if (args.debug) fprintf(stdout, fmts, date, ip);
 
   sdata->channel = ssh_channel_new(session);
   return sdata->channel;
@@ -185,21 +258,18 @@ static void handle_session(ssh_event event, ssh_session session) {
     .channel_open_request_session_function = channel_open,
   };
 
-  // Отладка
-  char* ip = get_сlient_ip(session);
-  if (ip == NULL) { ip = "null"; }
-  char* date = get_date_time();
+  // Запись в лог
+  const char* ip = get_сlient_ip(session);
+  if (ip == NULL) ip = "null";
+  const char* date = get_date_time();
+  const char* fmts = "[%s] New session | IP: %s\n";
 
-  if (DEBUG) {
-    fprintf(stdout, "[%s] New session | IP: %s\n", date, ip);
-  } else {
-    // Запись в лог
-    char buffer[256+sizeof(date)+sizeof(ip)];
-    snprintf(buffer, sizeof(buffer),
-      "[%s] New session | IP: %s\n", date, ip);
-    write_log(PATH_LOG, buffer); 
-  }
-  //
+  char buffer[256+sizeof(date)+sizeof(ip)];
+  snprintf(buffer, sizeof(buffer), fmts, date, ip);
+  write_log(args.path_log, buffer);
+
+  // Отладка
+  if (args.debug) fprintf(stdout, fmts, date, ip);
 
   ssh_callbacks_init(&server_cb);
   ssh_set_server_callbacks(session, &server_cb);
@@ -212,32 +282,32 @@ static void handle_session(ssh_event event, ssh_session session) {
   ssh_set_auth_methods(session, SSH_AUTH_METHOD_PASSWORD);
   ssh_event_add_session(event, session);
 
-  int rc;
   int n = 0;
   while (sdata.authenticated == 0 || sdata.channel == NULL) {
     // Если пользователь использовал все попытки, или он не смог -
     // аутентифицироваться в течение 10 секунд (n * 100 мс), отключаем.
-    if (sdata.auth_attempts >= 3 || n >= 100) {
+    if (sdata.auth_attempts >= PASSWORD_ATTEMPTS || n >= args.password_attempts_timeout) {
       return;
     }
 
     if (ssh_event_dopoll(event, 100) == SSH_ERROR) {
       char* date = get_date_time();
       const char* err = ssh_get_error(session);
-      if (DEBUG) {
-        fprintf(stdout, "[%s] Client message | IP: %s | %s\n", date, ip, err);
-      } else {
-        // Запись в лог
-        char buffer[256+sizeof(date)+sizeof(ip)+sizeof(err)];
-        snprintf(buffer, sizeof(buffer),
-         "[%s] Client message | IP: %s | %s\n", date, ip, err);
-        write_log(PATH_LOG, buffer); 
-      }
+      const char* fmts = "[%s] Client message | IP: %s | %s\n";
+
+      // Запись в лог
+      char buffer[256+sizeof(date)+sizeof(ip)+sizeof(err)];
+      snprintf(buffer, sizeof(buffer), fmts, date, ip, err);
+      write_log(args.path_log, buffer);
+
+      if (args.debug) fprintf(stdout, fmts, date, ip, err);
+
       return;
     }
     n++;
   }
 
+  int rc;
   do {
     // Опрос основного события, которое отвечает за сессию, канал и
     // даже стандартный вывод/ошибки нашего дочернего процесса (как только он будет запущен).
@@ -303,7 +373,10 @@ static void sigchld_handler(int signo) {
   while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  // Обработка аргументов
+  parse_args(argc, argv);
+
   ssh_bind sshbind;
   ssh_session session;
   ssh_event event;
@@ -321,15 +394,15 @@ int main() {
   ssh_init();
   sshbind = ssh_bind_new();
 
-  ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, PORT);
-  ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY, PATH_ECDSA_KEY);
+  ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, args.port);
+  ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY, args.path_ecdsa_key);
 
   if(ssh_bind_listen(sshbind) < 0) {
     fprintf(stderr, "%s\n", ssh_get_error(sshbind));
     return 1;
   }
 
-  fprintf(stdout, "SSH Server Started 0.0.0.0:%s\n", PORT);
+  fprintf(stdout, "SSH Server Started 0.0.0.0:%s\n", args.port);
 
   while (1) {
     session = ssh_new();
