@@ -61,6 +61,22 @@ make install
 make install-service
 ```
 
+# Работа с логами
+Включить запись в текстовый лог (`/var/log/honeypot-ssh/honeypot.log`)
+```bash
+honeypot-ssh-server --logging 1
+```
+
+Указать свой путь до лог файла
+```bash
+honeypot-ssh-server --logging 1 --path_log /home/$USER/honeypot.log
+```
+
+Отключить запись в базу данных (`/var/log/honeypot-ssh/honeypot.log`) и включить запись текстового лога
+```bash
+honeypot-ssh-server --sqlite 0 --logging 1 --path_log /home/$USER/honeypot.log
+```
+
 # Удаление
 ```bash
 make uninstall

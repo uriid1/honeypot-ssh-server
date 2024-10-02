@@ -61,6 +61,22 @@ make install
 make install-service
 ```
 
+# Working with Logs
+Enable logging to a text log (`/var/log/honeypot-ssh/honeypot.log`)
+```bash
+honeypot-ssh-server --logging 1
+```
+
+Specify your path to the log file
+```bash
+honeypot-ssh-server --logging 1 --path_log /home/$USER/honeypot.log
+```
+
+Disable logging to the database (`/var/log/honeypot-ssh/honeypot.log`) and enable logging to the text log
+```bash
+honeypot-ssh-server --sqlite 0 --logging 1 --path_log /home/$USER/honeypot.log
+```
+
 # Uninstallation
 ```bash
 make uninstall
