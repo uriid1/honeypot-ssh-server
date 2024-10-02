@@ -2,7 +2,7 @@
 Russian | [English](README.md)</br>
 Программа поставляется "как есть" и без каких-либо гарантий. </br>
 За основу взята библиотека `LibSSH` и пример под названием `ssh_server_fork`.</br>
-`По умолчанию создается база данных, куда пишется все логи /var/lib/honeypot-ssh/ssh_trap.db`
+`По умолчанию создается база данных, куда пишется все логи /var/lib/honeypot-ssh/honeypot.db`
 
 Пример лога `/var/log/honeypot-ssh/honeypot.log`</br>
 ```
@@ -39,7 +39,7 @@ bash make-systemd-service.sh
 ```bash
 sudo apt install libssh-4 libssh-dev
 sudo apt install openssl
-sudo apt install libsqlite3-dev
+sudo apt install sqlite3 libsqlite3-dev
 ```
 
 ### Arch / Manjaro
@@ -62,6 +62,11 @@ make install-service
 ```
 
 # Работа с логами
+Просмотр sqlite базы
+```bash
+sqlite3 /var/lib/honeypot-ssh/honeypot.db "SELECT * FROM logs ORDER BY id DESC LIMIT 50;" | column -t -s '|'
+```
+
 Включить запись в текстовый лог (`/var/log/honeypot-ssh/honeypot.log`)
 ```bash
 honeypot-ssh-server --logging 1

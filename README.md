@@ -2,7 +2,7 @@
 [Russian](README_RU.md) | English</br>
 The program is provided "as is" and without any warranties. </br>
 It is based on the LibSSH library and the example called ssh_server_fork.
-`By default, a database is created where all logs are written to /var/lib/honeypot-ssh/ssh_trap.db`
+`By default, a database is created where all logs are written to /var/lib/honeypot-ssh/honeypot.db`
 
 Example log at `/var/log/honeypot-ssh/honeypot.log`</br>
 ```
@@ -39,7 +39,7 @@ For new versions of Debian, the package name may change to `libssh-5`
 ```bash
 sudo apt install libssh-4 libssh-dev
 sudo apt install openssl
-sudo apt install libsqlite3-dev
+sudo apt install sqlite3 libsqlite3-dev
 ```
 
 ### Arch / Manjaro
@@ -62,6 +62,11 @@ make install-service
 ```
 
 # Working with Logs
+View SQLite database
+```bash
+sqlite3 /var/lib/honeypot-ssh/honeypot.db "SELECT * FROM logs ORDER BY id DESC LIMIT 50;" | column -t -s '|'
+```
+
 Enable logging to a text log (`/var/log/honeypot-ssh/honeypot.log`)
 ```bash
 honeypot-ssh-server --logging 1
