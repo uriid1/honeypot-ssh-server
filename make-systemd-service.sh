@@ -10,8 +10,8 @@ After=network-online.target
 
 [Service]
 # Run
-ExecStart=/home/$USER/honeypot-ssh-server
-ExecReload=/home/$USER/honeypot-ssh-server
+ExecStart=/usr/local/bin/honeypot-ssh-server
+ExecReload=/usr/local/bin/honeypot-ssh-server
 
 # Restart
 Restart=always
