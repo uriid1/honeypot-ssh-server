@@ -16,7 +16,8 @@ Russian | [English](README.md)</br>
 ```
 
 # Использование релиза (бинарника)
-Создание всех необходимых директорий и сервиса для systemd
+1. Загрузите последний релиз [honeypot-ssh-server-linux-amd64.tar.gz](https://github.com/uriid1/honeypot-ssh-server/releases)</br>
+2. Создайте все необходимых директорий и сервис для systemd.
 ```bash
 sudo mkdir -p /var/lib/honeypot-ssh/
 sudo mkdir -p /var/log/honeypot-ssh/
@@ -29,7 +30,7 @@ sudo cp honeypot-ssh-server /usr/local/bin/
 bash make-systemd-service.sh
 ```
 
-# Установка
+# Компиляция и установка
 ### Зависимости
 Для компиляции нужны пакеты: `libssh`, `openssl`, `sqlite3` .</br>
 У вас так же должны быть компилятор `gcc` и `make`.

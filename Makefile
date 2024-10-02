@@ -10,6 +10,10 @@ TARGET = honeypot-ssh-server
 SRC = $(SRCDIR)/honeypot-ssh-server.c $(SRCDIR)/utils.c $(SRCDIR)/sql.c
 
 # Статическая сборка (флаги для статического релиза)
+# тут предполагается, что есть директория /lib
+# в которой находятся libcrypto.a  libssh.a  libssl.a  sqlite3
+# исходники или готовые бинарники библитек я не вижу смысла хранить в репозитории.
+# Поэтому для сборки своего статического бинарника, нужно собрать libssh, openssl(libssl, libcrypto) и sqlite3.
 STATIC_LDFLAGS = -Llib -lssh -lssl -lcrypto -lz -lgssapi_krb5 -lsqlite3
 
 # Правило по умолчанию
@@ -26,7 +30,7 @@ static-release: clean
 	tar -czvf $(TARGET)-linux-amd64.tar.gz -C $(BUILDDIR) .
 	rm -rf $(BUILDDIR)
 
-# Установка ключей и подготовка сервиса
+# Установка
 install:
 	# База данных
 	sudo mkdir -p /var/lib/honeypot-ssh/
@@ -53,6 +57,7 @@ uninstall:
 install-service:
 	bash make-systemd-service.sh
 
+# Удаление systemd сервиса
 uninstall-service:
 	sudo rm -f /etc/systemd/system/honeypot-ssh-server.service
 	sudo systemctl disable honeypot-ssh-server.service

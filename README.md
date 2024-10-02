@@ -16,7 +16,8 @@ Example log at `/var/log/honeypot-ssh/honeypot.log`</br>
 ```
 
 # Using the Release (Binary)
-Create all necessary directories and the systemd service
+1. Download latest release [honeypot-ssh-server-linux-amd64.tar.gz](https://github.com/uriid1/honeypot-ssh-server/releases)</br>
+2. Create all necessary directories and the systemd service.
 ```bash
 sudo mkdir -p /var/lib/honeypot-ssh/
 sudo mkdir -p /var/log/honeypot-ssh/
@@ -29,7 +30,7 @@ sudo cp honeypot-ssh-server /usr/local/bin/
 bash make-systemd-service.sh
 ```
 
-# Installation
+# Build and installation
 ### Dependencies
 To compile, you need the packages: `libssh`, `openssl`, `sqlite3` .</br>
 You should also have the compiler `gcc` and `make`.
