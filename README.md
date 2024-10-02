@@ -2,8 +2,9 @@
 [Russian](README_RU.md) | English</br>
 The program is provided "as is" and without any warranties. </br>
 It is based on the LibSSH library and the example called ssh_server_fork.
+`By default, a database is created where all logs are written to /var/lib/honeypot-ssh/ssh_trap.db`
 
-Log example `log/honeypot_ssh.log`</br>
+Example log at `/var/log/honeypot-ssh/honeypot.log`</br>
 ```
 [2024-10-02 02:43:48] New session | IP: 43.155.130.118
 [2024-10-02 02:43:48] New session | IP: 34.101.245.3
@@ -14,65 +15,54 @@ Log example `log/honeypot_ssh.log`</br>
 [2024-10-02 02:43:50] Client message | IP: 45.183.218.125 | Received SSH_MSG_DISCONNECT: 11:Bye Bye
 ```
 
-# Installation
-### LibSSH
-First, install libssh on your distribution.</br>
-You should also have the gcc compiler installed.
+# Using the Release (Binary)
+Create all necessary directories and the systemd service
+```bash
+sudo mkdir -p /var/lib/honeypot-ssh/
+sudo mkdir -p /var/log/honeypot-ssh/
+sudo mkdir -p /etc/honeypot-ssh/
+sudo ssh-keygen -t ecdsa -b 521 -f /etc/honeypot-ssh/ssh_host_ecdsa_key -N ""
 
-### Debian
-For newer versions of Debian, the package name may change to `libssh-5`.
+tar -xzvf honeypot-ssh-server-linux-amd64.tar.gz
+sudo cp honeypot-ssh-server /usr/local/bin/
+
+bash make-systemd-service.sh
+```
+
+# Installation
+### Dependencies
+To compile, you need the packages: `libssh`, `openssl`, `sqlite3` .</br>
+You should also have the compiler `gcc` and `make`.
+
+### Debian 12
+For new versions of Debian, the package name may change to `libssh-5`
 ```bash
 sudo apt install libssh-4 libssh-dev
+sudo apt install openssl
+sudo apt install libsqlite3-dev
 ```
 
 ### Arch / Manjaro
 ```bash
 sudo pacman -S libssh
+sudo pacman -S openssl
+sudo pacman -S sqlite3
 ```
 
-# Automatic Build
-1. Run
-```bash
-bash install.sh
-```
-Or
+# Compilation
+### Build the binary and install
 ```bash
 make
 make install
 ```
-1. A `honeypot-ssh-server` directory will appear in your home folder containing the server binary.</br>
-2. Default port: `22`. You will need to open it through your firewall.</br>
-3. Create a systemd service or run the server with root privileges: `sudo ./honeypot-ssh-server`.
-5. To create a service by default, run `bash make-systemd-service.sh`
 
-# Manual Build
-Before building, you can change the port or log path by modifying the `src/config.h` file.</br>
-Or ./honeypot-ssh-server --help for information on available arguments.
-
-### Generate Keys
+### Create systemd and start the service
 ```bash
-ssh-keygen -t ecdsa -b 521 -f keys/ssh_host_ecdsa_key -N ""
+make install-service
 ```
 
-### Finally, run
+# Uninstallation
 ```bash
-make
-```
-
-### File Copying
-The executable file `honeypot-ssh-server` should be built.</br>
-It is assumed that the server will be placed in your home directory with the following structure:</br>
-```
-honeypot-ssh-server
-  - log
-  - keys
-  - honeypot-ssh-server
-```
-
-To do this, copy all the necessary files
-```bash
-mkdir ~/honeypot-ssh-server &&
-  cp -r log ~/honeypot-ssh-server &&
-  cp -r keys ~/honeypot-ssh-server &&
-  cp honeypot-ssh-server ~/honeypot-ssh-server
+make uninstall
+make uninstall-service
 ```

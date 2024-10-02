@@ -1,9 +1,10 @@
 # Honeypot SSH-Server
 Russian | [English](README.md)</br>
 Программа поставляется "как есть" и без каких-либо гарантий. </br>
-За основу взята библиотека `LibSSH` и пример под названием `ssh_server_fork`.
+За основу взята библиотека `LibSSH` и пример под названием `ssh_server_fork`.</br>
+`По умолчанию создается база данных, куда пишется все логи /var/lib/honeypot-ssh/ssh_trap.db`
 
-Пример лога `log/honeypot_ssh.log`</br>
+Пример лога `/var/log/honeypot-ssh/honeypot.log`</br>
 ```
 [2024-10-02 02:43:48] New session | IP: 43.155.130.118
 [2024-10-02 02:43:48] New session | IP: 34.101.245.3
@@ -14,65 +15,54 @@ Russian | [English](README.md)</br>
 [2024-10-02 02:43:50] Client message | IP: 45.183.218.125 | Received SSH_MSG_DISCONNECT: 11:Bye Bye
 ```
 
-# Установка
-### LibSSH
-Для начала установите `libssh` в свой дистрибутив.</br>
-У вас так же должны быть компилятор `gcc`.
+# Использование релиза (бинарника)
+Создание всех необходимых директорий и сервиса для systemd
+```bash
+sudo mkdir -p /var/lib/honeypot-ssh/
+sudo mkdir -p /var/log/honeypot-ssh/
+sudo mkdir -p /etc/honeypot-ssh/
+sudo ssh-keygen -t ecdsa -b 521 -f /etc/honeypot-ssh/ssh_host_ecdsa_key -N ""
 
-### Debian
+tar -xzvf honeypot-ssh-server-linux-amd64.tar.gz
+sudo cp honeypot-ssh-server /usr/local/bin/
+
+bash make-systemd-service.sh
+```
+
+# Установка
+### Зависимости
+Для компиляции нужны пакеты: `libssh`, `openssl`, `sqlite3` .</br>
+У вас так же должны быть компилятор `gcc` и `make`.
+
+### Debian 12
 Для новых версий дебиана пакет может сменить название на `libssh-5`
 ```bash
 sudo apt install libssh-4 libssh-dev
+sudo apt install openssl
+sudo apt install libsqlite3-dev
 ```
 
 ### Arch / Manjaro
 ```bash
 sudo pacman -S libssh
+sudo pacman -S openssl
+sudo pacman -S sqlite3
 ```
 
-# Автоматическая сборка
-1. Выполните
-```bash
-bash install.sh
-```
-Или
+# Компиляция
+### Сборка бинарника и установка
 ```bash
 make
 make install
 ```
-2. В домашнем каталоге появится директория `honeypot-ssh-server`, где будет бинарный файл сервера.</br>
-3. Порт по умолчанию: `22`. Его необходимо будет открыть через ваш фаервол.</br>
-4. Создайте сервис в `systemd` или запустите с root правами сервер `sudo ./honeypot-ssh-server`
-5. Чтобы автоматически создать сервис, выполните `bash make-systemd-service.sh`
 
-# Ручная сборка
-Перед сборкой, можно изменить порт или путь к логам, для этого нужно внести изменения в файл `src/config.h`.</br>
-Или `./honeypot-ssh-server --help` для справки по доступным аргументам.</br>
-
-### Сгенерируйте ключи
+### Создание systemd и запуск сервиса
 ```bash
-ssh-keygen -t ecdsa -b 521 -f keys/ssh_host_ecdsa_key -N ""
+make install-service
 ```
 
-### Наконец, выполните
+# Удаление
 ```bash
-make
-```
-
-### Копирование файлов
-Должен собраться исполняемый файл `honeypot-ssh-server`.</br>
-Предполагается, что сервер будет находится в домашней директории с такой иерархией:</br>
-```
-honeypot-ssh-server
-  - log
-  - keys
-  - honeypot-ssh-server
-```
-
-Для этого скопируйте всё необходимое
-```bash
-mkdir ~/honeypot-ssh-server &&
-  cp -r log ~/honeypot-ssh-server &&
-  cp -r keys ~/honeypot-ssh-server &&
-  cp honeypot-ssh-server ~/honeypot-ssh-server
+make uninstall
+make uninstall-service
 ```

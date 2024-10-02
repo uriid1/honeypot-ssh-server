@@ -1,13 +1,13 @@
 /*-------------------------------------*/
-/*/ Honeypot SSH-Server               /*/
-/*/ На основе libssh/ssh_server_fork  /*/
-/*/ by uriid                          /*/
+/* Honeypot SSH-Server                 */
+/* На основе libssh/ssh_server_fork    */
+/* by uriid                            */
 /*-------------------------------------*/
 
 // Функции libssh
 #include <libssh/callbacks.h>
 #include <libssh/server.h>
-// Работа с Ос
+// Стандартные библиотеки
 #include <poll.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -16,16 +16,17 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 // Обработка аргументов
 #include <argp.h>
-// Для получение данных клиента
-#include <string.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 // Конфиг
 #include "config.h"
-// Лог
-#include "write_log.h"
+// Утилиты write_log
+#include "utils.h"
+// Опциональная поддержка Sqlite
+#ifdef SUPPORT_SQLITE
+#include "sql.h"
+#endif
 // Константы скрипта
 #define BUF_SIZE 1048576
 #define SESSION_END (SSH_CLOSED | SSH_CLOSED_ERROR)
@@ -49,27 +50,34 @@ struct session_data_struct {
   ssh_channel channel;
   int auth_attempts;
   int authenticated;
+  #ifdef SUPPORT_SQLITE
+  sqlite3 *db;
+  #endif
 };
 
 // Структура для хранения аргументов
 struct arguments {
-  int debug;
   char* port;
   char* path_ecdsa_key;
   char* path_log;
   int password_attempts_timeout;
   int password_attempts;
+  int debug;
+  int logging;
+  int sqlite;
 };
 struct arguments args;
 
 // Описание аргументов
 static struct argp_option options[] = {
-  {"port",                      'p',  "PORT",                      0, "Port for connection (default is 22)"},
-  {"path_ecdsa_key",            'k',  "PATH_ECDSA_KEY",            0, "Path to the ECDSA key (default is keys/ssh_host_ecdsa_key)"},
-  {"path_log",                  'l',  "PATH_LOG",                  0, "Path to log file (default is log/honeypot_ssh.log)"},
-  {"password_attempts_timeout", 't',  "PASSWORD_ATTEMPTS_TIMEOUT", 0, "Timeout for password attempts (default is 100ms)"},
-  {"password_attempts",         'a',  "PASSWORD_ATTEMPTS",         0, "Number of password attempts (default is 3)"},
-  {"debug",                     'd',  "DEBUG",                     0, "Enable debug mode, default is 0 (disabled)"},
+  {"port",                      'p',  "STRING",    0, "Port for connection (default is 22)", 0},
+  {"path_ecdsa_key",            'k',  "STRING",    0, "Path to the ECDSA key (default is keys/ssh_host_ecdsa_key)", 0},
+  {"path_log",                  'l',  "STRING",    0, "Path to log file (default is log/honeypot_ssh.log)", 0},
+  {"password_attempts_timeout", 't',  "INT",       0, "Timeout for password attempts (default is 100ms)", 0},
+  {"password_attempts",         'a',  "INT",       0, "Number of password attempts (default is 3)", 0},
+  {"debug",                     'd',  "(1 or 0)",  0, "Enable debug mode, default is 0 (disabled)", 0},
+  {"logging",                   'L',  "(1 or 0)",  0, "Enable logging mode, default is 0 (disabled)", 0},
+  {"sqlite",                    's',  "(1 or 0)",  0, "Disable sqlite write, default is 1 (enabled)", 0},
 
   // Конец списка опций
   {0}
@@ -98,6 +106,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     case 'l':
       args->path_log = arg;
       break;
+    case 'L':
+      args->logging = atoi(arg);
+      break;
+    case 's':
+      args->sqlite = atoi(arg);
+      break;
     case ARGP_KEY_END:
       break;
     default:
@@ -119,48 +133,13 @@ void parse_args(int argc, char *argv[]) {
   args.password_attempts_timeout = PASSWORD_INPUT_TIMEOUT_MS;
   args.password_attempts = PASSWORD_ATTEMPTS;
   args.debug = DEBUG;
+  args.logging = LOGGING;
+  args.sqlite = WRITE_SQLITE;
 
-  struct argp argp = {options, parse_opt, args_doc, doc};
+  struct argp argp = {options, parse_opt, args_doc, doc, NULL, NULL, NULL};
 
   // Обработка аргументов
   argp_parse(&argp, argc, argv, 0, 0, &args);
-}
-
-// Ip адресс клиента строкой
-char* get_сlient_ip(ssh_session session) {
-  // Достаточно для хранения IPv4-адреса
-  static char ip[INET_ADDRSTRLEN];
-  struct sockaddr_storage tmp;
-  socklen_t len = sizeof(tmp);
-
-  getpeername(ssh_get_fd(session), (struct sockaddr*)&tmp, &len);
-  
-  // Обработка ipV4 адреса
-  if (tmp.ss_family == AF_INET) {
-    struct sockaddr_in *sock = (struct sockaddr_in *)&tmp;
-    inet_ntop(AF_INET, &sock->sin_addr, ip, sizeof(ip));
-    
-    return ip;
-  } else {
-    // Для V6 пока нет
-    return NULL;
-  }
-
-  return NULL;
-}
-
-// Дата и время строкой
-char* get_date_time() {
-  // Текущее время
-  time_t t = time(NULL);
-  // Преобразуем в локальное время
-  struct tm *tm_info = localtime(&t);
-
-  // Форматируем дату и время в строку
-  static char buffer[80];
-  strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
-
-  return buffer;
 }
 
 // Коллбэк ввода пароля
@@ -173,12 +152,31 @@ static int auth_password(ssh_session session, const char *user, const char *pass
   const char* date = get_date_time();
   const char* fmts = "[%s] Client enter password | IP: %s | User: %s | Pass: %s\n";
 
-  char buffer[256+sizeof(date)+sizeof(ip)+sizeof(user)+sizeof(pass)];
+  int size_buff = sizeof(date)+sizeof(ip)+sizeof(user)+sizeof(pass);
+  char buffer[256+size_buff];
   snprintf(buffer, sizeof(buffer), fmts, date, ip, user, pass);
-  write_log(args.path_log, buffer);
+  
+  // Логирование
+  if (args.logging) write_log(args.path_log, buffer);
 
   // Отладка
   if (args.debug) fprintf(stdout, fmts, date, ip, user, pass);
+
+  // Запись в базу данных
+  #ifdef SUPPORT_SQLITE
+  if (args.sqlite) {
+    sqlite3 *db = sdata->db;
+
+    const char *sql_insert_template = "INSERT INTO logs (date, ip, user, password) VALUES ('%s', '%s', '%s', '%s');";
+    char sql_insert[512+size_buff];
+
+    time_t unixtime = time(NULL);
+    snprintf(sql_insert, sizeof(sql_insert), sql_insert_template, ctime(&unixtime), ip, user, pass);
+
+    // Запрос на вставку данных
+    sql_execute(db, sql_insert);
+  }
+  #endif
 
   sdata->auth_attempts++;
   return SSH_AUTH_DENIED;
@@ -196,7 +194,9 @@ static ssh_channel channel_open(ssh_session session, void *userdata) {
 
   char buffer[256+sizeof(date)+sizeof(ip)];
   snprintf(buffer, sizeof(buffer), fmts, date, ip);
-  write_log(args.path_log, buffer);
+
+  // Логирование
+  if (args.logging) write_log(args.path_log, buffer);
 
   // Отладка
   if (args.debug) fprintf(stdout, fmts, date, ip);
@@ -235,7 +235,7 @@ static int process_stderr(socket_t fd, int revents, void *userdata) {
   return n;
 }
 
-static void handle_session(ssh_event event, ssh_session session) {
+static void handle_session(ssh_event event, ssh_session session, sqlite3 *db) {
   // Наша структура, содержащая информацию о канале
   struct channel_data_struct cdata = {
     .pid = 0,
@@ -249,7 +249,10 @@ static void handle_session(ssh_event event, ssh_session session) {
   struct session_data_struct sdata = {
     .channel = NULL,
     .auth_attempts = 0,
-    .authenticated = 0
+    .authenticated = 0,
+    #ifdef SUPPORT_SQLITE
+    .db = db,
+    #endif
   };
 
   struct ssh_server_callbacks_struct server_cb = {
@@ -266,7 +269,9 @@ static void handle_session(ssh_event event, ssh_session session) {
 
   char buffer[256+sizeof(date)+sizeof(ip)];
   snprintf(buffer, sizeof(buffer), fmts, date, ip);
-  write_log(args.path_log, buffer);
+
+  // Логирование
+  if (args.logging) write_log(args.path_log, buffer);
 
   // Отладка
   if (args.debug) fprintf(stdout, fmts, date, ip);
@@ -298,7 +303,9 @@ static void handle_session(ssh_event event, ssh_session session) {
       // Запись в лог
       char buffer[256+sizeof(date)+sizeof(ip)+sizeof(err)];
       snprintf(buffer, sizeof(buffer), fmts, date, ip, err);
-      write_log(args.path_log, buffer);
+
+      // Логирование
+      if (args.logging) write_log(args.path_log, buffer);
 
       if (args.debug) fprintf(stdout, fmts, date, ip, err);
 
@@ -307,7 +314,7 @@ static void handle_session(ssh_event event, ssh_session session) {
     n++;
   }
 
-  int rc;
+  int rc = 0;
   do {
     // Опрос основного события, которое отвечает за сессию, канал и
     // даже стандартный вывод/ошибки нашего дочернего процесса (как только он будет запущен).
@@ -377,6 +384,14 @@ int main(int argc, char *argv[]) {
   // Обработка аргументов
   parse_args(argc, argv);
 
+  // Инициализация Sqlite
+  #ifdef SUPPORT_SQLITE
+  sqlite3 *db = sql_init();
+  if (db == NULL) {
+    return EXIT_FAILURE;
+  }
+  #endif
+
   ssh_bind sshbind;
   ssh_session session;
   ssh_event event;
@@ -388,7 +403,7 @@ int main(int argc, char *argv[]) {
   sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
   if (sigaction(SIGCHLD, &sa, NULL) != 0) {
     fprintf(stderr, "Failed to register SIGCHLD handler\n");
-    return 1;
+    return EXIT_FAILURE;
   }
 
   ssh_init();
@@ -399,11 +414,10 @@ int main(int argc, char *argv[]) {
 
   if(ssh_bind_listen(sshbind) < 0) {
     fprintf(stderr, "%s\n", ssh_get_error(sshbind));
-    return 1;
+    return EXIT_FAILURE;
   }
 
   fprintf(stdout, "SSH Server Started 0.0.0.0:%s\n", args.port);
-
   while (1) {
     session = ssh_new();
     if (session == NULL) {
@@ -427,7 +441,7 @@ int main(int argc, char *argv[]) {
           if (event != NULL) {
             // Блокирует выполнение до завершения SSH-сессии, либо -
             // когда дочерний процесс завершится, либо клиент отключится
-            handle_session(event, session);
+            handle_session(event, session, db);
             ssh_event_free(event);
           } else {
             fprintf(stderr, "Could not create polling context\n");
@@ -435,7 +449,7 @@ int main(int argc, char *argv[]) {
           ssh_disconnect(session);
           ssh_free(session);
 
-          exit(0);
+          exit(EXIT_SUCCESS);
         case -1:
           fprintf(stderr, "Failed to fork\n");
       }
@@ -448,7 +462,11 @@ int main(int argc, char *argv[]) {
     ssh_free(session);
   }
 
+  #ifdef SUPPORT_SQLITE
+  sqlite3_close(db);
+  #endif
+
   ssh_bind_free(sshbind);
   ssh_finalize();
-  return 0;
+  return EXIT_SUCCESS;
 }

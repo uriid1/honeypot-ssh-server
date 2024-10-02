@@ -1,32 +1,66 @@
-default:
-	gcc \
-		src/honeypot-ssh-server.c \
-		src/write_log.c \
-		-o honeypot-ssh-server -lssh
+# Компилятор и флаги
+CC = gcc
+CFLAGS = -Wall -Wextra -O2
+LDFLAGS = -lsqlite3 -lssh
+SRCDIR = src
+BUILDDIR = build
+TARGET = honeypot-ssh-server
 
-static-release:
-	mkdir build
+# Исходники
+SRC = $(SRCDIR)/honeypot-ssh-server.c $(SRCDIR)/utils.c $(SRCDIR)/sql.c
 
-	gcc \
-		src/honeypot-ssh-server.c \
-		src/write_log.c \
-		-o build/honeypot-ssh-server \
-		-Llib -lssh -lssl -lcrypto -lz -lgssapi_krb5
+# Статическая сборка (флаги для статического релиза)
+STATIC_LDFLAGS = -Llib -lssh -lssl -lcrypto -lz -lgssapi_krb5 -lsqlite3
 
-	cp -r lib/keys build/keys
-	mkdir build/log
-	tar -czvf honeypot-ssh-server-linux-amd64.tar.gz -C build .
-	rm -rf build/
+# Правило по умолчанию
+default: $(TARGET)
 
+# Компиляция программы
+$(TARGET): $(SRC)
+	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LDFLAGS)
+
+# Цель для статической сборки
+static-release: clean
+	mkdir -p $(BUILDDIR)
+	$(CC) $(CFLAGS) $(SRC) -o $(BUILDDIR)/$(TARGET) $(STATIC_LDFLAGS)
+	tar -czvf $(TARGET)-linux-amd64.tar.gz -C $(BUILDDIR) .
+	rm -rf $(BUILDDIR)
+
+# Установка ключей и подготовка сервиса
 install:
-	mkdir -p keys
-	ssh-keygen -t ecdsa -b 521 -f keys/ssh_host_ecdsa_key -N ""
-	mkdir -p ~/honeypot-ssh-server
-	mkdir -p ~/honeypot-ssh-server/log
-	cp -r keys ~/honeypot-ssh-server
-	cp honeypot-ssh-server ~/honeypot-ssh-server
+	# База данных
+	sudo mkdir -p /var/lib/honeypot-ssh/
+	# Текстовые лог
+	sudo mkdir -p /var/log/honeypot-ssh/
+	# Ключ
+	sudo mkdir -p /etc/honeypot-ssh/
+	sudo ssh-keygen -t ecdsa -b 521 -f /etc/honeypot-ssh/ssh_host_ecdsa_key -N ""
+	# Бинарник
+	sudo cp honeypot-ssh-server /usr/local/bin/
+
+# Удаление
+uninstall:
+	# Удаление бинарника
+	sudo rm -f /usr/local/bin/honeypot-ssh-server
+	# Удаление базы данных
+	sudo rm -rf /var/lib/honeypot-ssh/
+	# Удаление логов
+	sudo rm -rf /var/log/honeypot-ssh/
+	# Удаление ключей
+	sudo rm -rf /etc/honeypot-ssh/
+
+# Создание systemd сервиса
+install-service:
 	bash make-systemd-service.sh
 
+uninstall-service:
+	sudo rm -f /etc/systemd/system/honeypot-ssh-server.service
+	sudo systemctl disable honeypot-ssh-server.service
+	sudo systemctl daemon-reload
+
+# Очистка сборки
 clean:
-	rm -rf build
-	rm honeypot-ssh-server
+	rm -rf $(BUILDDIR)
+	rm -f $(TARGET)
+
+.PHONY: default static-release install uninstall install-service uninstall-service service clean
