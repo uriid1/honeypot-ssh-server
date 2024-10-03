@@ -2,7 +2,7 @@
 Russian | [English](README.md)</br>
 Программа поставляется "как есть" и без каких-либо гарантий. </br>
 За основу взята библиотека `LibSSH` и пример под названием `ssh_server_fork`.</br>
-`По умолчанию создается база данных, куда пишется все логи /var/lib/honeypot-ssh/honeypot.db`
+`По умолчанию создается база данных, куда пишутся все логи /var/lib/honeypot-ssh/honeypot.db`
 
 Пример лога `/var/log/honeypot-ssh/honeypot.log`</br>
 ```

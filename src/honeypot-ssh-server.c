@@ -438,7 +438,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Таймаут для сессии
-    unsigned int timeout = 100;
+    unsigned int timeout = 30;
     ssh_options_set(session, SSH_OPTIONS_TIMEOUT, &timeout);
 
     // Блокирует выполнение до появления нового входящего соединения
