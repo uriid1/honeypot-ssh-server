@@ -5,6 +5,8 @@
 /*-------------------------------------*/
 
 // Функции libssh
+#include <libssh/libssh.h>
+
 #include <libssh/callbacks.h>
 #include <libssh/server.h>
 // Стандартные библиотеки
@@ -157,10 +159,12 @@ static int auth_password(ssh_session session, const char *user, const char *pass
   snprintf(buffer, sizeof(buffer), fmts, date, ip, user, pass);
   
   // Логирование
-  if (args.logging) write_log(args.path_log, buffer);
+  if (args.logging)
+    write_log(args.path_log, buffer);
 
   // Отладка
-  if (args.debug) fprintf(stdout, fmts, date, ip, user, pass);
+  if (args.debug)
+    fprintf(stdout, fmts, date, ip, user, pass);
 
   // Запись в базу данных
   #ifdef SUPPORT_SQLITE
@@ -196,10 +200,12 @@ static ssh_channel channel_open(ssh_session session, void *userdata) {
   snprintf(buffer, sizeof(buffer), fmts, date, ip);
 
   // Логирование
-  if (args.logging) write_log(args.path_log, buffer);
+  if (args.logging)
+    write_log(args.path_log, buffer);
 
   // Отладка
-  if (args.debug) fprintf(stdout, fmts, date, ip);
+  if (args.debug)
+    fprintf(stdout, fmts, date, ip);
 
   sdata->channel = ssh_channel_new(session);
   return sdata->channel;
@@ -271,20 +277,22 @@ static void handle_session(ssh_event event, ssh_session session, sqlite3 *db) {
   snprintf(buffer, sizeof(buffer), fmts, date, ip);
 
   // Логирование
-  if (args.logging) write_log(args.path_log, buffer);
+  if (args.logging)
+    write_log(args.path_log, buffer);
 
   // Отладка
-  if (args.debug) fprintf(stdout, fmts, date, ip);
+  if (args.debug)
+    fprintf(stdout, fmts, date, ip);
 
   ssh_callbacks_init(&server_cb);
   ssh_set_server_callbacks(session, &server_cb);
+  ssh_set_auth_methods(session, SSH_AUTH_METHOD_PASSWORD);
 
   if (ssh_handle_key_exchange(session) != SSH_OK) {
     fprintf(stderr, "%s\n", ssh_get_error(session));
     return;
   }
 
-  ssh_set_auth_methods(session, SSH_AUTH_METHOD_PASSWORD);
   ssh_event_add_session(event, session);
 
   int n = 0;
@@ -305,16 +313,18 @@ static void handle_session(ssh_event event, ssh_session session, sqlite3 *db) {
       snprintf(buffer, sizeof(buffer), fmts, date, ip, err);
 
       // Логирование
-      if (args.logging) write_log(args.path_log, buffer);
+      if (args.logging)
+        write_log(args.path_log, buffer);
 
-      if (args.debug) fprintf(stdout, fmts, date, ip, err);
+      if (args.debug)
+        fprintf(stdout, fmts, date, ip, err);
 
       return;
     }
     n++;
   }
 
-  int rc = 0;
+  int rc;
   do {
     // Опрос основного события, которое отвечает за сессию, канал и
     // даже стандартный вывод/ошибки нашего дочернего процесса (как только он будет запущен).
@@ -411,19 +421,25 @@ int main(int argc, char *argv[]) {
 
   ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, args.port);
   ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY, args.path_ecdsa_key);
+  // Подмена баннера SSH-2.0-libssh_0.11.1 -> SSH-2.0-OpenSSH_8.9
+  ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BANNER, BANNER);
 
   if(ssh_bind_listen(sshbind) < 0) {
     fprintf(stderr, "%s\n", ssh_get_error(sshbind));
     return EXIT_FAILURE;
   }
 
-  fprintf(stdout, "SSH Server Started 0.0.0.0:%s\n", args.port);
+  fprintf(stdout, "Honeypot SSH-Server Started 0.0.0.0:%s\n", args.port);
   while (1) {
     session = ssh_new();
     if (session == NULL) {
       fprintf(stderr, "Failed to allocate session\n");
       continue;
     }
+
+    // Таймаут для сессии
+    unsigned int timeout = 100;
+    ssh_options_set(session, SSH_OPTIONS_TIMEOUT, &timeout);
 
     // Блокирует выполнение до появления нового входящего соединения
     if(ssh_bind_accept(sshbind, session) != SSH_ERROR) {

@@ -8,5 +8,6 @@
 #define PATH_ECDSA_KEY  "/etc/honeypot-ssh/ssh_host_ecdsa_key"
 #define PATH_LOG        "/var/log/honeypot-ssh/honeypot.log "
 #define PATH_DATABASE   "/var/lib/honeypot-ssh/honeypot.db"
+#define BANNER          "OpenSSH_8.9"
 #define PASSWORD_ATTEMPTS 3
 #define PASSWORD_INPUT_TIMEOUT_MS 100

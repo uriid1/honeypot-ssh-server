@@ -16,11 +16,12 @@ SRC = $(SRCDIR)/honeypot-ssh-server.c $(SRCDIR)/utils.c $(SRCDIR)/sql.c
 # Поэтому для сборки своего статического бинарника, нужно собрать libssh, openssl(libssl, libcrypto) и sqlite3.
 STATIC_LDFLAGS = -Llib -lssh -lssl -lcrypto -lz -lgssapi_krb5 -lsqlite3
 
-# Правило по умолчанию
-default: $(TARGET)
-
 # Компиляция программы
-$(TARGET): $(SRC)
+default:
+	$(CC) $(SRC) -o $(TARGET) $(LDFLAGS)
+
+# Компиляция с отладкой
+debug:
 	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LDFLAGS)
 
 # Цель для статической сборки
