@@ -1,3 +1,5 @@
+#define __VERSION "Honeypot SSH-Server v0.4\n"
+
 #define DEBUG 0           // Debug output to stdout 
 #define LOGGING 0         // Write log
 #define SUPPORT_SQLITE 1  // Support sqlite 3

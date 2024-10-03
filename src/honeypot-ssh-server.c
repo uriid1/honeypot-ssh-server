@@ -5,8 +5,6 @@
 /*-------------------------------------*/
 
 // Функции libssh
-#include <libssh/libssh.h>
-
 #include <libssh/callbacks.h>
 #include <libssh/server.h>
 // Стандартные библиотеки
@@ -80,6 +78,7 @@ static struct argp_option options[] = {
   {"debug",                     'd',  "(1 or 0)",  0, "Enable debug mode, default is 0 (disabled)", 0},
   {"logging",                   'L',  "(1 or 0)",  0, "Enable logging mode, default is 0 (disabled)", 0},
   {"sqlite",                    's',  "(1 or 0)",  0, "Disable sqlite write, default is 1 (enabled)", 0},
+  {"version",                   'v',  0,           0, "Show version", 0},
 
   // Конец списка опций
   {0}
@@ -113,6 +112,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       break;
     case 's':
       args->sqlite = atoi(arg);
+      break;
+    case 'v':
+      fprintf(stdout, __VERSION);
+      exit(EXIT_SUCCESS);
       break;
     case ARGP_KEY_END:
       break;
